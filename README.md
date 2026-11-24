@@ -4,9 +4,13 @@
 
 ![段誉·攻击动作](workshop/image.png)
 
-## v1.1.0
+## v1.2.0
 
-- 角色选择页加入呼吸、并指出剑、流动山雾和浮光。选中段誉即可看到循环演出。
+- 角色选择页改为循环播放段誉在湖边抬手致意的模型动画。宽袖、腰带与湖雾随动作变化。动作扩展换用「天南一指」插画封面。
+
+## 角色选择页
+
+选中段誉后，游戏在原生界面背后循环播放动态插画。扩展将插画帧打包进 DLL。帧资源不可用时，页面显示段誉的静态立绘。
 
 ## 战斗演出
 
@@ -31,3 +35,5 @@ dotnet build .\DuanYuAttackAnimation.csproj -c Release "-p:Sts2Path=D:/steam/ste
 ```
 
 安装文件包括生成的 `CQBZLY_DUAN_YU_ATTACK_ANIMATION.dll` 与同名 JSON 清单。
+
+构建时，项目将 `assets/selection-atlas-*.jpg` 嵌入 DLL。

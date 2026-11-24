@@ -3,13 +3,14 @@
     <TargetFramework>net9.0</TargetFramework>
     <AssemblyName>CQBZLY_DUAN_YU_ATTACK_ANIMATION</AssemblyName>
     <RootNamespace>DuanYuAttackAnimation</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Sts2Path Condition="'$(Sts2Path)' == ''">D:/steam/steamapps/common/Slay the Spire 2</Sts2Path>
     <Sts2DataDir Condition="'$(Sts2DataDir)' == ''">$(Sts2Path)/data_sts2_windows_x86_64</Sts2DataDir>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="assets/selection-atlas-*.jpg" LogicalName="DuanYuAttackAnimation.%(Filename)%(Extension)" />
     <Reference Include="sts2" HintPath="$(Sts2DataDir)/sts2.dll" Private="false" />
     <Reference Include="GodotSharp" HintPath="$(Sts2DataDir)/GodotSharp.dll" Private="false" />
     <Reference Include="0Harmony" HintPath="$(Sts2DataDir)/0Harmony.dll" Private="false" />
