@@ -1,0 +1,14 @@
+{
+  "id": "CQBZLY_DUAN_YU_ATTACK_ANIMATION",
+  "name": "段誉·攻击动作",
+  "author": "cqbzly",
+  "description": "为大理世子·段誉添加踏步出掌、并指出招和六脉剑气的独立战斗演出。",
+  "version": "1.0.0",
+  "min_game_version": "0.113.1",
+  "has_pck": false,
+  "has_dll": true,
+  "affects_gameplay": false,
+  "dependencies": [
+    { "id": "CQBZLY_DUAN_YU", "min_version": "0.5.30" }
+  ]
+}
