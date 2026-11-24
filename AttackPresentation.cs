@@ -22,33 +22,114 @@ internal readonly record struct AttackStyle(Color Tint, float Arc, int Strands, 
 
 internal static class AttackPresentation
 {
+    private const int FrameWidth = 240;
+    private const int FrameHeight = 320;
+    private const int Columns = 4;
+    private const int Rows = 3;
+    private const int ReleaseFrame = 4;
+    private const double WindupFrameTime = 0.024;
+    private const double MinimumWindupTimeout = 0.40;
     private static readonly ConditionalWeakTable<Sprite2D, PoseState> BodyStates = new();
-    private static readonly Texture2D[] Poses = new Texture2D[5];
+    private static AttackClip _palm = null!;
+    private static AttackClip _finger = null!;
 
     internal static void LoadPoses()
     {
-        for (int frame = 0; frame < Poses.Length; frame++)
+        using var idleImage = LoadPng("idle", FrameWidth, FrameHeight);
+        var palm = LoadClip("palm", new Vector2(211, 98));
+        var finger = LoadClip("finger", new Vector2(226, 93));
+        if (idleImage is not null && palm is not null && finger is not null)
+        {
+            _palm = palm;
+            _finger = finger;
+            if (Engine.GetMainLoop() is SceneTree tree)
+            {
+                var idle = ImageTexture.CreateFromImage(idleImage);
+                tree.NodeAdded += node => AttachIdle(node, idle);
+            }
+            return;
+        }
+
+        GD.PushWarning("Duan Yu combat sprites are incomplete. Using the original attack poses.");
+        var poses = new Texture2D[5];
+        for (int frame = 0; frame < poses.Length; frame++)
         {
             using var image = new Image();
             Error result = image.LoadSvgFromString(AttackPoseArt.Render(frame));
             if (result != Error.Ok) throw new InvalidOperationException($"Attack pose {frame}: {result}");
-            Poses[frame] = ImageTexture.CreateFromImage(image);
+            poses[frame] = ImageTexture.CreateFromImage(image);
         }
+        _palm = new AttackClip([poses[0], poses[1], poses[4]], 1, new Vector2(228, 147), 0.10, 0.10);
+        _finger = new AttackClip([poses[2], poses[3], poses[4]], 1, new Vector2(232, 145), 0.10, 0.10);
     }
 
-    internal static Texture2D PoseTexture(int frame) => Poses[frame];
+    private static AttackClip? LoadClip(string name, Vector2 launchPoint)
+    {
+        using var atlas = LoadPng(name, FrameWidth * Columns, FrameHeight * Rows);
+        if (atlas is null) return null;
+
+        var frames = new Texture2D[Columns * Rows];
+        for (int frame = 0; frame < frames.Length; frame++)
+        {
+            var region = new Rect2I(frame % Columns * FrameWidth, frame / Columns * FrameHeight, FrameWidth, FrameHeight);
+            using var image = atlas.GetRegion(region);
+            frames[frame] = ImageTexture.CreateFromImage(image);
+        }
+        return new AttackClip(frames, ReleaseFrame, launchPoint, 0.070, 0.032);
+    }
+
+    private static Image? LoadPng(string name, int width, int height)
+    {
+        using var stream = typeof(AttackPresentation).Assembly
+            .GetManifestResourceStream($"DuanYuAttackAnimation.combat-{name}.png");
+        if (stream is null) return null;
+
+        var bytes = new byte[stream.Length];
+        stream.ReadExactly(bytes);
+        var image = new Image();
+        if (image.LoadPngFromBuffer(bytes) == Error.Ok && image.GetWidth() == width && image.GetHeight() == height)
+            return image;
+
+        image.Dispose();
+        return null;
+    }
+
+    private static void AttachIdle(Node node, Texture2D idle)
+    {
+        // BaseLib replaces the scene root for combat. The sprite keeps the main mod's original texture path.
+        if (node is not Sprite2D { Texture: { } texture } body || body.Name != "Visuals") return;
+        string path = texture.ResourcePath;
+        if (path.StartsWith("user://cqbzly.duanyu/assets-", StringComparison.Ordinal) &&
+            Path.GetFileName(path).StartsWith("character-", StringComparison.Ordinal) &&
+            body.GetParent()?.HasNode("AnimationPlayer") == true)
+        {
+            body.Texture = idle;
+        }
+    }
 
     internal static void WindUp(Creature attacker, AttackStyle style)
     {
         if (NCombatRoom.Instance?.GetCreatureNode(attacker)?.Body is not Sprite2D body) return;
         PoseState state = BodyStates.GetValue(body, sprite => new PoseState(sprite.Texture));
         state.ResetTimer?.Kill();
-        state.Original = Array.IndexOf(Poses, body.Texture) < 0 ? body.Texture : state.Original;
+        if (state.Current is null || state.Current != body.Texture) state.Original = body.Texture;
         state.AwaitingRelease = true;
-        body.Texture = Poses[style.Finger ? 2 : 0];
-        state.ResetTimer = body.CreateTween();
-        state.ResetTimer.TweenInterval(0.4);
-        state.ResetTimer.TweenCallback(Callable.From(() => Restore(body, state)));
+
+        AttackClip clip = style.Finger ? _finger : _palm;
+        body.Texture = state.Current = clip.Frames[0];
+        Tween timer = state.ResetTimer = body.CreateTween();
+        for (int frame = 1; frame < clip.ReleaseIndex; frame++)
+        {
+            Texture2D texture = clip.Frames[frame];
+            timer.TweenInterval(WindupFrameTime);
+            timer.TweenCallback(Callable.From(() => Present(body, state, texture)));
+        }
+
+        // The game controls when damage happens. Hold the wind-up pose if its animation takes longer.
+        double nativeDelay = attacker.Player?.Character.AttackAnimDelay ?? 0;
+        double timeout = Math.Max(MinimumWindupTimeout, nativeDelay + 0.10);
+        timer.TweenInterval(timeout - (clip.ReleaseIndex - 1) * WindupFrameTime);
+        timer.TweenCallback(Callable.From(() => Restore(body, state)));
     }
 
     internal static Node2D? Hit(Creature attacker, Creature target, AttackStyle style)
@@ -61,37 +142,50 @@ internal static class AttackPresentation
             return null;
         }
 
+        AttackClip clip = style.Finger ? _finger : _palm;
         if (state.AwaitingRelease)
         {
             state.AwaitingRelease = false;
             state.ResetTimer?.Kill();
-            Texture2D release = Poses[style.Finger ? 3 : 1];
-            body.Texture = release;
-            state.ResetTimer = body.CreateTween();
-            state.ResetTimer.TweenInterval(0.10);
-            state.ResetTimer.TweenCallback(Callable.From(() =>
+            Present(body, state, clip.Frames[clip.ReleaseIndex]);
+            Tween timer = state.ResetTimer = body.CreateTween();
+            timer.TweenInterval(clip.ReleaseHold);
+            for (int frame = clip.ReleaseIndex + 1; frame < clip.Frames.Length; frame++)
             {
-                if (body.Texture == release) body.Texture = Poses[4];
-            }));
-            state.ResetTimer.TweenInterval(0.10);
-            state.ResetTimer.TweenCallback(Callable.From(() => Restore(body, state)));
+                Texture2D texture = clip.Frames[frame];
+                timer.TweenCallback(Callable.From(() => Present(body, state, texture)));
+                timer.TweenInterval(clip.RecoveryFrameTime);
+            }
+            timer.TweenCallback(Callable.From(() => Restore(body, state)));
         }
 
-        Vector2 hand = style.Finger ? new(112, -15) : new(108, -13);
-        if (body.FlipH) hand.X = -hand.X;
-        return AttackTrail.Create(body.ToGlobal(hand), targetNode.VfxSpawnPosition, style);
+        Vector2 hand = clip.LaunchPoint;
+        if (body.FlipH) hand.X = FrameWidth - hand.X;
+        if (body.FlipV) hand.Y = FrameHeight - hand.Y;
+        if (body.Centered) hand -= new Vector2(FrameWidth, FrameHeight) * 0.5f;
+        return AttackTrail.Create(body.ToGlobal(body.Offset + hand), targetNode.VfxSpawnPosition, style);
+    }
+
+    private static void Present(Sprite2D body, PoseState state, Texture2D frame)
+    {
+        if (body.Texture == state.Current) body.Texture = state.Current = frame;
     }
 
     private static void Restore(Sprite2D body, PoseState state)
     {
-        if (Array.IndexOf(Poses, body.Texture) >= 0) body.Texture = state.Original;
+        if (body.Texture == state.Current) body.Texture = state.Original;
+        state.Current = null;
         state.AwaitingRelease = false;
         state.ResetTimer = null;
     }
 
+    private sealed record AttackClip(Texture2D[] Frames, int ReleaseIndex, Vector2 LaunchPoint,
+        double ReleaseHold, double RecoveryFrameTime);
+
     private sealed class PoseState(Texture2D? original)
     {
         public Texture2D? Original = original;
+        public Texture2D? Current;
         public Tween? ResetTimer;
         public bool AwaitingRelease;
     }

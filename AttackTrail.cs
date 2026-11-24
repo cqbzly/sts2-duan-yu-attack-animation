@@ -27,61 +27,54 @@ internal static class AttackTrail
     {
         Vector2 direction = end.LengthSquared() > 1 ? end.Normalized() : Vector2.Right;
         Vector2 side = direction.Orthogonal();
-        float head = Mathf.Clamp(age * 6f, 0, 1f);
-        float tail = Mathf.Clamp((age - 0.17f) * 1.75f, 0, 1f);
-        float fade = (1 - age) * (1 - age);
-        Color core = style.Tint.Lerp(Colors.White, 0.74f);
+        const float arrival = 0.28f;
+        float head = Mathf.Clamp(age / arrival, 0f, 1f);
+        float impactAge = Mathf.Clamp((age - arrival) / (1f - arrival), 0f, 1f);
+        float length = Mathf.Min(style.Finger ? 110f : 86f, end.Length() * 0.54f);
+        float fraction = length / Mathf.Max(1f, end.Length());
+        float tail = Mathf.Clamp(head - fraction * (1f - impactAge * 2.1f), 0f, 1f);
+        float fade = 1f - impactAge;
+        Color core = style.Tint.Lerp(new Color("fff3d6"), 0.62f);
 
-        for (int strand = 0; strand < style.Strands; strand++)
+        if (head - tail > 0.008f && end.LengthSquared() > 1f)
         {
-            float offset = strand - (style.Strands - 1) * 0.5f;
-            float arc = style.Arc + offset * 74;
-            var points = new Vector2[17];
-            for (int pointIndex = 0; pointIndex < points.Length; pointIndex++)
-            {
-                float fraction = Mathf.Lerp(tail, head, pointIndex / (float)(points.Length - 1));
-                points[pointIndex] = end * fraction + side * (Mathf.Sin(Mathf.Pi * fraction) * arc);
-            }
-
-            float width = style.Width * (1 - Mathf.Abs(offset) * 0.32f);
-            effect.DrawPolyline(points, WithAlpha(style.Tint, 0.19f * fade), width * 2.8f, true);
-            effect.DrawPolyline(points, WithAlpha(style.Tint, 0.78f * fade), width, true);
-            effect.DrawPolyline(points, WithAlpha(core, 0.86f * fade), Mathf.Max(1.4f, width * 0.30f), true);
-
-            Vector2 tip = points[^1];
-            Vector2 forward = (tip - points[^2]).Normalized();
-            Vector2 flank = forward.Orthogonal() * width * 0.95f;
-            Vector2 root = tip - forward * (18f + width);
-            if (forward != Vector2.Zero)
-            {
-                effect.DrawColoredPolygon([tip + forward * 7, root + flank, tip - forward * 8, root - flank],
-                    WithAlpha(core, 0.95f * fade));
-            }
+            DrawCrescent(effect, end, side, style.Arc, tail, head, style.Width * 1.4f,
+                WithAlpha(style.Tint, 0.30f * fade));
+            DrawCrescent(effect, end, side, style.Arc, tail, head, style.Width * 0.83f,
+                WithAlpha(style.Tint, 0.91f * fade));
+            DrawCrescent(effect, end, side, style.Arc, Mathf.Lerp(tail, head, 0.25f), head, style.Width * 0.35f,
+                WithAlpha(core, 0.91f * fade));
         }
 
-        float launch = Mathf.Max(0, 1 - age * 3.8f);
-        float radius = style.Width * (1.1f + age * 7f);
-        effect.DrawArc(Vector2.Zero, radius, direction.Angle() - 1.2f, direction.Angle() + 1.2f, 21,
-            WithAlpha(style.Tint, launch * 0.80f), style.Finger ? 2f : 5f, true);
-        effect.DrawCircle(Vector2.Zero, style.Width * 0.38f, WithAlpha(core, launch), antialiased: true);
-
-        float impactAge = Mathf.Clamp((age - 0.12f) / 0.88f, 0, 1);
-        float sparkAlpha = Mathf.Min(1f, age * 9f) * (1 - impactAge) * (1 - impactAge);
-        if (age < 0.12f) return;
-
-        float spread = (style.Finger ? 28f : 43f) * (0.28f + impactAge);
-        float angle = direction.Angle() - 0.6f;
-        effect.DrawArc(end, spread, angle - 1.35f, angle + 1.85f, 24, WithAlpha(style.Tint, sparkAlpha * 0.65f), 2, true);
-        effect.DrawCircle(end, (style.Finger ? 10f : 15f) * (1 - impactAge), WithAlpha(style.Tint, sparkAlpha * 0.38f),
-            antialiased: true);
-        for (int spark = 0; spark < 7; spark++)
+        if (age < arrival) return;
+        float spread = (style.Finger ? 25f : 39f) * (0.34f + impactAge);
+        int shardCount = 4 + style.Strands;
+        for (int shard = 0; shard < shardCount; shard++)
         {
-            float sparkAngle = angle + spark * (Mathf.Tau / 7) + style.Arc * 0.03f;
-            Vector2 ray = Vector2.FromAngle(sparkAngle);
-            float length = spread * (0.52f + (spark % 3) * 0.19f);
-            Vector2 point = end + ray * length;
-            effect.DrawLine(point, point + ray * (8 + spark % 3 * 5), WithAlpha(core, sparkAlpha), spark % 2 + 1, true);
+            float angle = direction.Angle() - 1.48f + 2.96f * shard / (shardCount - 1);
+            Vector2 ray = Vector2.FromAngle(angle);
+            Vector2 point = end + ray * spread * (0.75f + 0.12f * (shard % 3));
+            Vector2 flank = ray.Orthogonal() * (1.3f + shard % 2);
+            effect.DrawColoredPolygon([point - flank, point + ray * (5f + 9f * fade), point + flank],
+                WithAlpha(shard % 2 == 0 ? core : style.Tint, fade * fade));
         }
+    }
+
+    private static void DrawCrescent(Node2D effect, Vector2 end, Vector2 side, float arc,
+        float tail, float head, float width, Color color)
+    {
+        const int samples = 11;
+        var shape = new Vector2[samples * 2];
+        for (int index = 0; index < samples; index++)
+        {
+            float time = index / (float)(samples - 1);
+            float fraction = Mathf.Lerp(tail, head, time);
+            Vector2 center = end * fraction + side * (Mathf.Sin(Mathf.Pi * fraction) * arc);
+            float span = width * (0.04f + 0.46f * Mathf.Sin(Mathf.Pi * time));
+            shape[index] = center + side * span;
+            shape[shape.Length - 1 - index] = center - side * span * 0.42f;
+        }
+        effect.DrawColoredPolygon(shape, color);
     }
 
     private static Color WithAlpha(Color color, float alpha) => new(color.R, color.G, color.B, alpha);
