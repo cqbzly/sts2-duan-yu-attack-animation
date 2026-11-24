@@ -36,17 +36,20 @@ internal static class AttackPresentation
     internal static void LoadPoses()
     {
         using var idleImage = LoadPng("idle", FrameWidth, FrameHeight);
+        using var restImage = LoadPng("rest", FrameWidth, FrameHeight);
+        if (idleImage is not null && Engine.GetMainLoop() is SceneTree tree)
+        {
+            var idle = ImageTexture.CreateFromImage(idleImage);
+            var rest = restImage is null ? null : ImageTexture.CreateFromImage(restImage);
+            tree.NodeAdded += node => ReplaceCharacterTexture(node, idle, rest);
+        }
+
         var palm = LoadClip("palm", new Vector2(211, 98));
         var finger = LoadClip("finger", new Vector2(226, 93));
         if (idleImage is not null && palm is not null && finger is not null)
         {
             _palm = palm;
             _finger = finger;
-            if (Engine.GetMainLoop() is SceneTree tree)
-            {
-                var idle = ImageTexture.CreateFromImage(idleImage);
-                tree.NodeAdded += node => AttachIdle(node, idle);
-            }
             return;
         }
 
@@ -94,18 +97,27 @@ internal static class AttackPresentation
         return null;
     }
 
-    private static void AttachIdle(Node node, Texture2D idle)
+    private static void ReplaceCharacterTexture(Node node, Texture2D idle, Texture2D? rest)
     {
-        // BaseLib replaces the scene root for combat. The sprite keeps the main mod's original texture path.
-        if (node is not Sprite2D { Texture: { } texture } body || body.Name != "Visuals") return;
-        string path = texture.ResourcePath;
-        if (path.StartsWith("user://cqbzly.duanyu/assets-", StringComparison.Ordinal) &&
-            Path.GetFileName(path).StartsWith("character-", StringComparison.Ordinal) &&
-            body.GetParent()?.HasNode("AnimationPlayer") == true)
+        // BaseLib can replace the scene root. The sprite keeps the main mod's original texture path.
+        if (node is Sprite2D { Texture: { } texture } sprite)
         {
-            body.Texture = idle;
+            if (sprite.Name == "Visuals" && IsDuanYuTexture(texture, "character-"))
+                sprite.Texture = idle;
+            else if (rest is not null && IsDuanYuTexture(texture, "rest-"))
+                sprite.Texture = rest;
+        }
+        else if (node is TextureRect { Texture: { } portrait } rect &&
+            rect.Name == "Portrait" &&
+            IsDuanYuTexture(portrait, "character-"))
+        {
+            rect.Texture = idle;
         }
     }
+
+    private static bool IsDuanYuTexture(Texture2D texture, string prefix) =>
+        texture.ResourcePath.StartsWith("user://cqbzly.duanyu/assets-", StringComparison.Ordinal) &&
+        Path.GetFileName(texture.ResourcePath).StartsWith(prefix, StringComparison.Ordinal);
 
     internal static void WindUp(Creature attacker, AttackStyle style)
     {

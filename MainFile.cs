@@ -3,6 +3,7 @@ using HarmonyLib;
 using MegaCrit.Sts2.Core.Commands.Builders;
 using MegaCrit.Sts2.Core.Modding;
 using MegaCrit.Sts2.Core.Models;
+using MegaCrit.Sts2.Core.Nodes.Screens.Shops;
 
 namespace DuanYuAttackAnimation;
 
@@ -15,8 +16,26 @@ public static class MainFile
     {
         AttackPresentation.LoadPoses();
         SelectionPresentation.Initialize();
-        new Harmony(ModId).CreateClassProcessor(typeof(CardAttackPatch)).Patch();
+        var harmony = new Harmony(ModId);
+        harmony.CreateClassProcessor(typeof(CardAttackPatch)).Patch();
+        harmony.CreateClassProcessor(typeof(MerchantAnimationPatch)).Patch();
         GD.Print("Duan Yu attack animation initialized.");
+    }
+}
+
+[HarmonyPatch]
+internal static class MerchantAnimationPatch
+{
+    private static IEnumerable<System.Reflection.MethodBase> TargetMethods()
+    {
+        yield return AccessTools.Method(typeof(NMerchantCharacter), nameof(NMerchantCharacter._Ready));
+        yield return AccessTools.Method(typeof(NMerchantCharacter), nameof(NMerchantCharacter.PlayAnimation));
+    }
+
+    private static bool Prefix(NMerchantCharacter __instance)
+    {
+        var visual = __instance.GetNodeOrNull<Node2D>("DuanYuMerchant");
+        return visual?.GetNodeOrNull<Sprite2D>("Visuals") is null;
     }
 }
 
