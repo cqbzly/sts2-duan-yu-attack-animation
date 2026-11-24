@@ -4,19 +4,23 @@
 
 ![段誉·攻击动作](workshop/image.png)
 
-## v1.0.0
+## v1.1.0
+
+- 角色选择页加入呼吸、并指出剑、流动山雾和浮光。选中段誉即可看到循环演出。
+
+## 战斗演出
 
 - 普通攻击加入踏步出掌、命中和收招动作。
 - 「无意一指」以并指发出青玉色指劲。
 - 六脉剑气各有颜色和飞行轨迹。「中冲剑气」会向每名实际命中的敌人发出剑气。
 
-只处理战斗演出，沿用主模组的伤害和费用。
+扩展提供角色选择页和战斗演出。
 
 ## 安装
 
 启用「大理世子·段誉」v0.5.30 或更新版本及其 BaseLib 依赖。可以在创意工坊订阅动作扩展，也可以使用 GitHub 安装包，将 `DuanYuAttackAnimation` 文件夹解压到游戏目录中的 `mods`，重启后在模组管理中启用。详见[安装说明](安装说明.md)。[动作扩展](https://steamcommunity.com/sharedfiles/filedetails/?id=3845078140) · [段誉主模组](https://steamcommunity.com/sharedfiles/filedetails/?id=3841781260) · [GitHub 下载](https://github.com/cqbzly/sts2-duan-yu-attack-animation/releases/latest)
 
-已在 Windows《杀戮尖塔 2》v0.113.1 中与工坊版段誉 v0.5.30 验证。打击、无意一指和六种剑气均触发演出，群攻覆盖三名敌人。
+测试环境为 Windows《杀戮尖塔 2》v0.113.1。打击、无意一指和六种剑气均触发演出，群攻覆盖三名敌人。
 
 ## 构建
 

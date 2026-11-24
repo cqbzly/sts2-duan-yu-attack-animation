@@ -14,6 +14,7 @@ public static class MainFile
     public static void Initialize()
     {
         AttackPresentation.LoadPoses();
+        SelectionPresentation.Initialize();
         new Harmony(ModId).CreateClassProcessor(typeof(CardAttackPatch)).Patch();
         GD.Print("Duan Yu attack animation initialized.");
     }

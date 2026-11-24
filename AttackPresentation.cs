@@ -36,6 +36,8 @@ internal static class AttackPresentation
         }
     }
 
+    internal static Texture2D PoseTexture(int frame) => Poses[frame];
+
     internal static void WindUp(Creature attacker, AttackStyle style)
     {
         if (NCombatRoom.Instance?.GetCreatureNode(attacker)?.Body is not Sprite2D body) return;

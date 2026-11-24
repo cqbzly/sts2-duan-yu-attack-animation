@@ -3,7 +3,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <AssemblyName>CQBZLY_DUAN_YU_ATTACK_ANIMATION</AssemblyName>
     <RootNamespace>DuanYuAttackAnimation</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Sts2Path Condition="'$(Sts2Path)' == ''">D:/steam/steamapps/common/Slay the Spire 2</Sts2Path>
